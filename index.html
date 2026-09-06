@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>作業用 ポモドーロタイマー</title>
+    <style>
+        :root {
+            --bg-work: #1a252c;
+            --bg-break: #112d32;
+            --current-bg: var(--bg-work);
+            --text: #ecf0f1;
+            --toast-bg: rgba(0, 0, 0, 0.85);
+            /* フォント設定を追加 */
+            --font-work: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            --font-break: 'Yu Mincho', 'YuMincho', 'Hiragino Mincho ProN', 'Noto Serif JP', serif;
+        }
+
+        body {
+            /* モードによってフォントを切り替えるため、初期フォントは--font-workを設定 */
+            font-family: var(--font-work);
+            background-color: var(--current-bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            transition: background-color 0.8s ease;
+        }
+
+        #bg-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            opacity: 0;
+            transition: opacity 1.5s ease-in-out;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        #bg-image.show {
+            opacity: 0.4;
+        }
+
+        #bg-image.show {
+            opacity: 0.4; /* 休憩中の画像の濃さ（調整可能） */
+        }
+
+        /* 画面全体フラッシュアニメーション（WORK終了時：青白発光） */
+        @keyframes flash-to-break {
+            0% { background-color: var(--bg-work); }
+            25% { background-color: #3498db; filter: brightness(2.5); }
+            50% { background-color: #ffffff; }
+            75% { background-color: #2ecc71; filter: brightness(2); }
+            100% { background-color: var(--bg-break); }
+        }
+
+        /* 画面全体フラッシュアニメーション（BREAK終了時：緑青発光） */
+        @keyframes flash-to-work {
+            0% { background-color: var(--bg-break); }
+            25% { background-color: #2ecc71; filter: brightness(2.5); }
+            50% { background-color: #ffffff; }
+            75% { background-color: #3498db; filter: brightness(2); }
+            100% { background-color: var(--bg-work); }
+        }
+
+        body.flash-break {
+            animation: flash-to-break 1.2s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        body.flash-work {
+            animation: flash-to-work 1.2s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        /* 休憩モード時のフォント適用クラス */
+        body.break-mode-active {
+            font-family: var(--font-break);
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
+            text-align: center;
+            width: 320px;
+            position: relative;
+            z-index: 1;
+            transition: border-color 0.5s ease;
+        }
+
+        h1 {
+            margin-top: 0;
+            font-size: 24px;
+            letter-spacing: 2px;
+            color: #fff;
+        }
+
+        #mode-label {
+            font-size: 22px;
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            transition: color 0.5s ease;
+        }
+
+        #timer {
+            font-size: 72px;
+            font-weight: bold;
+            margin: 20px 0;
+            font-family: monospace;
+            text-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+
+        .buttons {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px 10px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+
+        button:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.4);
+        }
+
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        #start-btn { background-color: #2ecc71; }
+        #pause-btn { background-color: #f1c40f; color: #2c3e50; }
+        #reset-btn { background-color: #e74c3c; }
+
+        /* 自動で消えるトースト通知 */
+        #toast {
+            position: fixed;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: var(--toast-bg);
+            padding: 16px 28px;
+            border-radius: 30px;
+            border: 2px solid var(--primary);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+            z-index: 100;
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+            text-align: center;
+        }
+
+        #toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        #toast-title {
+            font-weight: bold;
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+
+        #toast-message {
+            font-size: 14px;
+            color: #bdc3c7;
+        }
+    </style>
+</head>
+<body>
+
+<!-- 背景画像用のコンテナを追加 -->
+<div id="bg-image"></div>
+
+<div class="container" id="app-container">
+    <h1>作業用タイマー</h1>
+    <div id="mode-label">集中モード</div>
+    <div id="timer">25:00</div>
+    
+    <div class="buttons">
+        <button id="start-btn" onclick="startTimer()">開始</button>
+        <button id="pause-btn" onclick="pauseTimer()">一時停止</button>
+        <button id="reset-btn" onclick="resetTimer()">リセット</button>
+    </div>
+</div>
+
+<div id="toast">
+    <div id="toast-title">タイトル</div>
+    <div id="toast-message">メッセージ</div>
+</div>
+
+<script>
+    // --------------------------------------------------
+    // BGM設定
+    // --------------------------------------------------
+    const BGM_LIST = [
+        "Lo-fi/1.mp3",
+        "Lo-fi/2.mp3",
+        "Lo-fi/3.mp3",
+        "Lo-fi/4.mp3",
+        "Lo-fi/5.mp3",
+        "Lo-fi/6.mp3",
+        "Lo-fi/7.mp3"
+    ]; 
+    
+    let unplayedBgmList = [...BGM_LIST];
+    const BGM_VOLUME = 0.4; 
+    const CAFE_IMAGE_PATH = "img/cafe.jpg";
+
+    const bgmAudio = new Audio();
+    bgmAudio.volume = BGM_VOLUME;
+    bgmAudio.loop = false;
+    // --------------------------------------------------
+
+    const WORK_TIME = 25 * 60;
+    const BREAK_TIME = 5 * 60;
+    
+    let timeLeft = WORK_TIME;
+    let timerId = null;
+    let isWorkMode = true;
+    let isRunning = false;
+    let toastTimeout = null;
+    let bgmStartTimeout = null;
+    let fadeOutInterval = null;
+
+    const timerDisplay = document.getElementById('timer');
+    const modeLabel = document.getElementById('mode-label');
+    const appContainer = document.getElementById('app-container');
+    const toast = document.getElementById('toast');
+    const toastTitle = document.getElementById('toast-title');
+    const toastMessage = document.getElementById('toast-message');
+    const bgImage = document.getElementById('bg-image');
+
+    if (CAFE_IMAGE_PATH) {
+        bgImage.style.backgroundImage = `url('${CAFE_IMAGE_PATH}')`;
+    }
+
+    bgmAudio.addEventListener('ended', playRandomBGM);
+
+    function playRandomBGM() {
+        if (BGM_LIST.length === 0) return;
+        
+        if (unplayedBgmList.length === 0) {
+            unplayedBgmList = [...BGM_LIST];
+        }
+
+        const randomIndex = Math.floor(Math.random() * unplayedBgmList.length);
+        const selectedBgm = unplayedBgmList[randomIndex];
+        
+        unplayedBgmList.splice(randomIndex, 1);
+
+        bgmAudio.src = selectedBgm;
+        bgmAudio.volume = BGM_VOLUME;
+        
+        bgmAudio.play().catch(e => console.log("BGM再生エラー:", e));
+    }
+
+    // 音量のフェードアウト処理
+    function startFadeOut(durationMs) {
+        if (fadeOutInterval) clearInterval(fadeOutInterval);
+        const fps = 20;
+        const totalSteps = (durationMs / 1000) * fps; 
+        const intervalTime = durationMs / totalSteps; 
+        const startVolume = bgmAudio.volume;
+        let step = 0;
+
+        fadeOutInterval = setInterval(() => {
+            step++;
+            let nextVol = startVolume - (startVolume * (step / totalSteps));
+            if (nextVol <= 0) {
+                bgmAudio.volume = 0;
+                clearInterval(fadeOutInterval);
+            } else {
+                bgmAudio.volume = nextVol;
+            }
+        }, intervalTime);
+    }
+
+    function stopFadeOut() {
+        if (fadeOutInterval) clearInterval(fadeOutInterval);
+        bgmAudio.volume = BGM_VOLUME;
+    }
+
+    // アラーム音の再生
+    function playAlertSound() {
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return;
+            
+            const ctx = new AudioContext();
+
+            const soundEvents = [
+                { time: 0.0, freq: 880, dur: 0.25 },
+                { time: 0.3, freq: 880, dur: 0.25 },
+                { time: 0.8, freq: 880, dur: 0.25 },
+                { time: 1.1, freq: 880, dur: 0.25 },
+                { time: 1.6, freq: 1046.5, dur: 0.3 },
+                { time: 2.0, freq: 1046.5, dur: 0.3 },
+                { time: 2.4, freq: 1318.5, dur: 0.6 }
+            ];
+
+            soundEvents.forEach(evt => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(evt.freq, ctx.currentTime + evt.time);
+                
+                gain.gain.setValueAtTime(0.4, ctx.currentTime + evt.time);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + evt.time + evt.dur);
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                
+                osc.start(ctx.currentTime + evt.time);
+                osc.stop(ctx.currentTime + evt.time + evt.dur);
+            });
+            
+        } catch (error) {
+            console.log("サウンド再生エラー:", error);
+        }
+    }
+
+    function formatTime(seconds) {
+        const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+        const s = (seconds % 60).toString().padStart(2, '0');
+        return `${m}:${s}`;
+    }
+
+    function updateDisplay() {
+        timerDisplay.textContent = formatTime(timeLeft);
+        if (isWorkMode) {
+            modeLabel.textContent = "集中モード";
+            modeLabel.style.color = "var(--primary)";
+            document.body.style.setProperty('--current-bg', 'var(--bg-work)');
+            document.body.classList.remove('break-mode-active');
+            appContainer.style.borderColor = 'rgba(52, 152, 219, 0.4)';
+            bgImage.classList.remove('show');
+        } else {
+            modeLabel.textContent = "休憩";
+            modeLabel.style.color = "var(--secondary)";
+            document.body.style.setProperty('--current-bg', 'var(--bg-break)');
+            document.body.classList.add('break-mode-active');
+            appContainer.style.borderColor = 'rgba(231, 76, 60, 0.4)';
+            if (CAFE_IMAGE_PATH) bgImage.classList.add('show');
+        }
+    }
+
+    function triggerScreenFlash(nextIsWork) {
+        document.body.classList.remove('flash-work', 'flash-break');
+        void document.body.offsetWidth;
+
+        if (nextIsWork) {
+            document.body.classList.add('flash-work');
+        } else {
+            document.body.classList.add('flash-break');
+        }
+    }
+
+    function showNotification(title, message, isWork) {
+        toastTitle.textContent = title;
+        toastMessage.textContent = message;
+        
+        if (isWork) {
+            toast.style.borderColor = "var(--primary)";
+            toastTitle.style.color = "var(--primary)";
+        } else {
+            toast.style.borderColor = "var(--secondary)";
+            toastTitle.style.color = "var(--secondary)";
+        }
+        
+        toast.classList.add('show');
+        playAlertSound();
+
+        if (toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+            toast.classList.remove('show');
+        }, 4000);
+    }
+
+    function runTimerLoop() {
+        timerId = setInterval(() => {
+            timeLeft--;
+            updateDisplay();
+
+            // 休憩モード終了10秒前にフェードアウト開始
+            if (!isWorkMode && timeLeft === 10) {
+                startFadeOut(7000); 
+            }
+
+            if (timeLeft <= 0) {
+                const wasWorkMode = isWorkMode;
+                isWorkMode = !isWorkMode;
+                timeLeft = isWorkMode ? WORK_TIME : BREAK_TIME;
+                
+                triggerScreenFlash(isWorkMode);
+                updateDisplay();
+                
+                if (wasWorkMode) {
+                    showNotification("お疲れ様でした", "5分間の休憩です。リフレッシュしましょう。", false);
+                    
+                    unplayedBgmList = [...BGM_LIST];
+
+                    if (bgmStartTimeout) clearTimeout(bgmStartTimeout);
+                    bgmStartTimeout = setTimeout(() => {
+                        if (!isWorkMode && isRunning) {
+                            playRandomBGM();
+                        }
+                    }, 3000);
+                } else {
+                    showNotification("休憩終了", "25分間の集中モードを開始します。", true);
+                    
+                    if (bgmStartTimeout) clearTimeout(bgmStartTimeout);
+                    stopFadeOut();
+                    bgmAudio.pause();
+                }
+            }
+        }, 1000);
+    }
+
+    function startTimer() {
+        if (isRunning) return; 
+        isRunning = true;
+        runTimerLoop();
+    }
+
+    function pauseTimer() {
+        clearInterval(timerId);
+        isRunning = false;
+    }
+
+    function resetTimer() {
+        clearInterval(timerId);
+        isRunning = false;
+        isWorkMode = true;
+        timeLeft = WORK_TIME;
+        document.body.classList.remove('flash-work', 'flash-break', 'break-mode-active');
+        updateDisplay();
+        toast.classList.remove('show');
+        
+        if (bgmStartTimeout) clearTimeout(bgmStartTimeout);
+        stopFadeOut();
+        bgmAudio.pause();
+    }
+    
+    updateDisplay();
+</script>
+</body>
+</html>
