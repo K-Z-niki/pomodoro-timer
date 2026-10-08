@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>作業用 ポモドーロタイマー Ver.1.1</title>
+    <title>作業用 ポモドーロタイマー Ver.1.2</title>
     <style>
         :root {
             --bg-work: #1a252c;
@@ -266,6 +266,20 @@
             font-size: 14px;
             color: #bdc3c7;
         }
+
+        /* ★ヒーローによるアップデート：正義のバージョン表示★ */
+        #version-display {
+            position: fixed;
+            bottom: 15px;
+            right: 20px;
+            font-size: 13px;
+            font-weight: bold;
+            color: rgba(255, 255, 255, 0.4);
+            letter-spacing: 1px;
+            font-family: monospace;
+            z-index: 50;
+            pointer-events: none; /* マウス操作を邪魔しないバリア */
+        }
     </style>
 </head>
 <body>
@@ -301,6 +315,9 @@
     <div id="toast-title">タイトル</div>
     <div id="toast-message">メッセージ</div>
 </div>
+
+<!-- ★ヒーローによるアップデート：正義のバージョン表示★ -->
+<div id="version-display">Ver.1.2</div>
 
 <script>
     const BGM_LIST = [
@@ -414,7 +431,6 @@
         }
     }
 
-    // 音量のスムーズなフェードイン・フェードアウト共通関数
     function fadeBgm(targetVol, durationMs, onComplete) {
         if (fadeInterval) clearInterval(fadeInterval);
         const fps = 30;
@@ -543,7 +559,23 @@
         }
         
         toast.classList.add('show');
-        playAlertSound();
+
+        if (document.visibilityState === 'visible') {
+            playAlertSound();
+        } else {
+            if ("Notification" in window && Notification.permission === "granted") {
+                const desktopNotification = new Notification(title, {
+                    body: message,
+                    requireInteraction: true 
+                });
+
+                desktopNotification.onclick = function() {
+                    window.focus(); 
+                    playAlertSound(); 
+                    this.close(); 
+                };
+            }
+        }
 
         if (toastTimeout) clearTimeout(toastTimeout);
         toastTimeout = setTimeout(() => {
@@ -561,7 +593,6 @@
             timeLeft = Math.max(0, Math.round((targetEndTime - now) / 1000));
             updateDisplay();
 
-            // 休憩モード残り10秒：音楽フェードアウト＆画面が10秒かけて徐々に真っ黒へ
             if (!isWorkMode && timeLeft === 10) {
                 fadeBgm(0, 9000); 
                 cutsceneText.textContent = "";
@@ -576,7 +607,6 @@
                 const wasWorkMode = isWorkMode;
                 
                 if (wasWorkMode) {
-                    // 集中モード終了時
                     completedSessions++; 
                     
                     triggerCutscene(WORK_END_MESSAGES, () => {
@@ -599,8 +629,6 @@
                     });
 
                 } else {
-                    // 休憩モード終了時
-                    // 1. 真っ暗な画面にメッセージを浮き上がらせる
                     const randomMsg = BREAK_END_MESSAGES[Math.floor(Math.random() * BREAK_END_MESSAGES.length)];
                     cutsceneText.textContent = randomMsg;
                     
@@ -608,23 +636,19 @@
                         cutsceneText.classList.add('show');
                     }, 100);
 
-                    // 2. ★黒い画面（ロード画面）の裏側で背景・UIを「集中モード」に即座に切り替え！
                     isWorkMode = true;
                     timeLeft = WORK_TIME;
                     updateDisplay(); 
 
-                    // 3. メッセージを2.8秒見せた後、文字を消す
                     setTimeout(() => {
                         cutsceneText.classList.remove('show');
                         
-                        // 4. 文字が完全消灯してから暗転（ロード画面）を開け、ここでタイマーカウントスタート！
                         setTimeout(() => {
                             fadeBgm(0, 300);
                             cutsceneOverlay.classList.remove('slow-fade', 'active');
 
                             showNotification("休憩終了", "25分間の集中モードを開始します。", true);
                             
-                            // 暗転が完全に開けたこの瞬間から25分タイマーを本格スタート！
                             targetEndTime = Date.now() + timeLeft * 1000;
                             isRunning = true;
                             runTimerLoop();
@@ -638,10 +662,14 @@
 
     function startTimer() {
         if (isRunning) return; 
+        
+        if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+            Notification.requestPermission();
+        }
+
         isRunning = true;
         targetEndTime = Date.now() + timeLeft * 1000;
 
-        // 休憩中に再開された場合、BGMをスムーズにフェードイン再生
         if (!isWorkMode) {
             if (bgmAudio.src && bgmAudio.paused) {
                 bgmAudio.volume = 0;
@@ -663,7 +691,6 @@
         targetEndTime = null; 
         if (bgmStartTimeout) clearTimeout(bgmStartTimeout);
 
-        // 休憩中の一時停止時はBGMを0.8秒で滑らかにフェードアウト消音
         if (!isWorkMode && !bgmAudio.paused) {
             fadeBgm(0, 800);
         }
