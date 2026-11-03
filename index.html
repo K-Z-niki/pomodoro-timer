@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>作業用 ポモドーロタイマー Ver.1.2</title>
+    <title>作業用 ポモドーロタイマー Ver.1.3</title>
     <style>
         :root {
             --bg-work: #1a252c;
@@ -13,7 +13,6 @@
             --secondary: #2ecc71;
             --text: #ecf0f1;
             --toast-bg: rgba(0, 0, 0, 0.85);
-            /* 全体統一ゴシック体 */
             --font-gothic: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
         }
 
@@ -57,7 +56,7 @@
             border: 1px solid rgba(255, 255, 255, 0.15);
             box-shadow: 0 20px 40px rgba(0,0,0,0.6);
             text-align: center;
-            width: 320px;
+            width: 340px;
             position: relative;
             z-index: 1;
             transition: border-color 0.8s ease, box-shadow 0.8s ease;
@@ -101,28 +100,78 @@
             text-shadow: 0 4px 12px rgba(0,0,0,0.4);
         }
 
-        #volume-control {
-            margin: 15px 0 5px 0;
-            opacity: 0;
-            max-height: 0;
-            overflow: hidden;
-            transition: opacity 0.6s ease, max-height 0.6s ease, margin 0.6s ease;
+        /* カスタムコントロールエリア */
+        .control-group {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 15px;
+            text-align: left;
         }
 
-        #volume-control.active {
-            opacity: 1;
-            max-height: 60px;
-            margin: 15px 0;
-        }
-
-        .volume-label {
-            font-size: 13px;
-            color: #bdc3c7;
-            margin-bottom: 6px;
+        .control-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0 5px;
+            font-size: 14px;
+            color: #bdc3c7;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .control-details {
+            overflow: hidden;
+            max-height: 100px;
+            opacity: 1;
+            transition: all 0.4s ease;
+        }
+
+        .control-details.collapsed {
+            max-height: 0;
+            opacity: 0;
+            margin: 0;
+        }
+
+        /* 休憩BGM用（非表示切り替え用） */
+        #break-bgm-control {
+            max-height: 0;
+            opacity: 0;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
+            transition: all 0.6s ease;
+        }
+
+        #break-bgm-control.active {
+            max-height: 120px;
+            opacity: 1;
+            padding: 12px;
+            margin-bottom: 15px;
+        }
+
+        select {
+            width: 100%;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            outline: none;
+            font-family: var(--font-gothic);
+        }
+
+        select option {
+            background: #2c3e50;
+            color: #fff;
+        }
+
+        .volume-label {
+            font-size: 12px;
+            color: #bdc3c7;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
         }
 
         input[type=range] {
@@ -131,9 +180,7 @@
             background: transparent;
         }
 
-        input[type=range]:focus {
-            outline: none;
-        }
+        input[type=range]:focus { outline: none; }
 
         input[type=range]::-webkit-slider-runnable-track {
             width: 100%;
@@ -147,18 +194,51 @@
             height: 16px;
             width: 16px;
             border-radius: 50%;
-            background: #2ecc71;
+            background: var(--primary);
             cursor: pointer;
             -webkit-appearance: none;
             margin-top: -5px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.4);
         }
 
+        #break-volume-slider::-webkit-slider-thumb {
+            background: #2ecc71;
+        }
+
+        /* トグルスイッチ */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 20px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255,255,255,0.2);
+            transition: .4s;
+            border-radius: 20px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 14px; width: 14px;
+            left: 3px; bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--primary); }
+        input:focus + .slider { box-shadow: 0 0 1px var(--primary); }
+        input:checked + .slider:before { transform: translateX(20px); }
+
         .buttons {
             display: flex;
             justify-content: space-between;
             gap: 12px;
-            margin-top: 10px;
+            margin-top: 15px;
         }
 
         button {
@@ -189,96 +269,40 @@
         #pause-btn { background-color: #f1c40f; color: #2c3e50; }
         #reset-btn { background-color: #e74c3c; }
 
+        /* カットシーン＆トースト（既存ママ） */
         #cutscene-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background-color: #000000;
-            z-index: 999;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.8s ease-in-out;
-            padding: 20px;
-            box-sizing: border-box;
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-color: #000000; z-index: 999; display: flex;
+            justify-content: center; align-items: center; opacity: 0;
+            pointer-events: none; transition: opacity 0.8s ease-in-out;
+            padding: 20px; box-sizing: border-box;
         }
-
-        #cutscene-overlay.slow-fade {
-            transition: opacity 9.5s linear;
-        }
-
-        #cutscene-overlay.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
+        #cutscene-overlay.slow-fade { transition: opacity 9.5s linear; }
+        #cutscene-overlay.active { opacity: 1; pointer-events: auto; }
+        
         #cutscene-text {
-            color: #ffffff;
-            font-size: 26px;
-            font-weight: bold;
-            text-align: center;
-            line-height: 1.6;
-            letter-spacing: 2px;
-            text-shadow: 0 0 20px rgba(255, 255, 255, 0.6);
-            opacity: 0;
-            transform: scale(0.95);
+            color: #ffffff; font-size: 26px; font-weight: bold; text-align: center;
+            line-height: 1.6; letter-spacing: 2px; text-shadow: 0 0 20px rgba(255, 255, 255, 0.6);
+            opacity: 0; transform: scale(0.95);
             transition: opacity 0.8s ease, transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-
-        #cutscene-text.show {
-            opacity: 1;
-            transform: scale(1);
-        }
+        #cutscene-text.show { opacity: 1; transform: scale(1); }
 
         #toast {
-            position: fixed;
-            top: 30px;
-            left: 50%;
-            transform: translateX(-50%) translateY(-100px);
-            background: var(--toast-bg);
-            padding: 16px 28px;
-            border-radius: 30px;
-            border: 2px solid var(--primary);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.6);
-            z-index: 100;
-            opacity: 0;
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            pointer-events: none;
-            text-align: center;
+            position: fixed; top: 30px; left: 50%; transform: translateX(-50%) translateY(-100px);
+            background: var(--toast-bg); padding: 16px 28px; border-radius: 30px;
+            border: 2px solid var(--primary); box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+            z-index: 100; opacity: 0; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none; text-align: center;
         }
+        #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        #toast-title { font-weight: bold; font-size: 20px; margin-bottom: 4px; }
+        #toast-message { font-size: 14px; color: #bdc3c7; }
 
-        #toast.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-        }
-
-        #toast-title {
-            font-weight: bold;
-            font-size: 20px;
-            margin-bottom: 4px;
-        }
-
-        #toast-message {
-            font-size: 14px;
-            color: #bdc3c7;
-        }
-
-        /* ★ヒーローによるアップデート：正義のバージョン表示★ */
         #version-display {
-            position: fixed;
-            bottom: 15px;
-            right: 20px;
-            font-size: 13px;
-            font-weight: bold;
-            color: rgba(255, 255, 255, 0.4);
-            letter-spacing: 1px;
-            font-family: monospace;
-            z-index: 50;
-            pointer-events: none; /* マウス操作を邪魔しないバリア */
+            position: fixed; bottom: 15px; right: 20px; font-size: 13px;
+            font-weight: bold; color: rgba(255, 255, 255, 0.4);
+            letter-spacing: 1px; font-family: monospace; z-index: 50; pointer-events: none;
         }
     </style>
 </head>
@@ -296,12 +320,37 @@
     <div id="mode-label">集中モード</div>
     <div id="timer">25:00</div>
     
-    <div id="volume-control">
-        <div class="volume-label">
-            <span>🎵 休憩BGM音量</span>
-            <span id="volume-val">40%</span>
+    <!-- 環境音コントロール (作業用) -->
+    <div class="control-group" id="ambient-control">
+        <div class="control-header">
+            <span>🌿 集中用環境音</span>
+            <label class="switch">
+                <input type="checkbox" id="ambient-toggle" onchange="toggleAmbient()">
+                <span class="slider"></span>
+            </label>
         </div>
-        <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.4" oninput="changeVolume(this.value)">
+        <div class="control-details collapsed" id="ambient-details">
+            <select id="ambient-select" onchange="changeAmbientSound()">
+                <option value="BGM/takibi.mp3">焚火</option>
+                <option value="BGM/ame.mp3">雨</option>
+                <option value="BGM/seseragi.mp3">せせらぎ</option>
+                <option value="BGM/sazanami.mp3">さざ波</option>
+            </select>
+            <div class="volume-label">
+                <span>音量</span>
+                <span id="ambient-volume-val">40%</span>
+            </div>
+            <input type="range" id="ambient-volume-slider" min="0" max="1" step="0.01" value="0.4" oninput="changeAmbientVolume(this.value)">
+        </div>
+    </div>
+
+    <!-- 休憩BGMコントロール (休憩用) -->
+    <div class="control-group" id="break-bgm-control">
+        <div class="control-header">
+            <span>🎵 休憩BGM音量</span>
+            <span id="break-volume-val" class="volume-label" style="margin:0;">40%</span>
+        </div>
+        <input type="range" id="break-volume-slider" min="0" max="1" step="0.01" value="0.4" oninput="changeBreakVolume(this.value)">
     </div>
 
     <div class="buttons">
@@ -316,28 +365,30 @@
     <div id="toast-message">メッセージ</div>
 </div>
 
-<!-- ★ヒーローによるアップデート：正義のバージョン表示★ -->
-<div id="version-display">Ver.1.2</div>
+<!-- バージョン更新 -->
+<div id="version-display">Ver.1.3</div>
 
 <script>
+    // --- 休憩用BGM設定 ---
     const BGM_LIST = [
-        "Lo-fi/1.mp3",
-        "Lo-fi/2.mp3",
-        "Lo-fi/3.mp3",
-        "Lo-fi/4.mp3",
-        "Lo-fi/5.mp3",
-        "Lo-fi/6.mp3",
-        "Lo-fi/7.mp3"
+        "Lo-fi/1.mp3", "Lo-fi/2.mp3", "Lo-fi/3.mp3", "Lo-fi/4.mp3",
+        "Lo-fi/5.mp3", "Lo-fi/6.mp3", "Lo-fi/7.mp3"
     ]; 
-    
     let unplayedBgmList = [...BGM_LIST];
-    let currentVolume = 0.4; 
+    let breakVolume = 0.4; 
+    const breakAudio = new Audio();
+    breakAudio.volume = breakVolume;
+    breakAudio.loop = false;
+    breakAudio.addEventListener('ended', playRandomBreakBGM);
+
+    // --- 集中用環境音設定 ---
+    let ambientVolume = 0.4;
+    let isAmbientOn = false;
+    const ambientAudio = new Audio();
+    ambientAudio.volume = ambientVolume;
+    ambientAudio.loop = true; // 環境音はループ再生
+
     const CAFE_IMAGE_PATH = "img/cafe.jpg";
-
-    const bgmAudio = new Audio();
-    bgmAudio.volume = currentVolume;
-    bgmAudio.loop = false;
-
     const WORK_TIME = 25 * 60;
     const BREAK_TIME = 5 * 60;
     
@@ -351,167 +402,142 @@
     let toastTimeout = null;
     let bgmStartTimeout = null;
     let fadeInterval = null;
+    let ambientFadeInterval = null;
 
-    const WORK_END_MESSAGES = [
-        "お疲れ様！素晴らしい集中力でした！",
-        "よく頑張ったね！しっかり休もう！",
-        "休憩が終わったらもう一回楽しもう！",
-        "一歩前進！最高の作業時間！",
-        "ナイスファイト！深呼吸してリラックスしよう！",
-        "集中モード達成！自分を褒めてあげてね！",
-        "お疲れ様！少し肩の力を抜こう！",
-        "今日も最高に輝いてるよ！",
-        "素晴らしい積み重ね！次の準備へ！"
-    ];
-
-    const BREAK_END_MESSAGES = [
-        "もう自分には負けない",
-        "掴むんだ、最高の舞台を！",
-        "あともう一回頑張ろう",
-        "限界を超えて、次のレベルへ！",
-        "君ならできる！さあ集中しよう！",
-        "夢に向かって、もう一歩！",
-        "未来の自分への最高の投資だ！",
-        "目指そうぜ、まだ見ぬ自分を！",
-        "まだ諦めるには早すぎるんじゃないのか？",
-        "心頭滅却",
-        "明鏡止水"
-    ];
+    const WORK_END_MESSAGES = ["お疲れ様！素晴らしい集中力でした！", "よく頑張ったね！しっかり休もう！"];
+    const BREAK_END_MESSAGES = ["もう自分には負けない", "掴むんだ、最高の舞台を！", "心頭滅却"];
 
     const timerDisplay = document.getElementById('timer');
     const modeLabel = document.getElementById('mode-label');
     const appContainer = document.getElementById('app-container');
-    const toast = document.getElementById('toast');
-    const toastTitle = document.getElementById('toast-title');
-    const toastMessage = document.getElementById('toast-message');
     const bgImage = document.getElementById('bg-image');
-    const volumeControl = document.getElementById('volume-control');
-    const volumeSlider = document.getElementById('volume-slider');
-    const volumeValText = document.getElementById('volume-val');
-    const sessionCountDisplay = document.getElementById('session-count');
-    const cutsceneOverlay = document.getElementById('cutscene-overlay');
-    const cutsceneText = document.getElementById('cutscene-text');
+    const breakBgmControl = document.getElementById('break-bgm-control');
+    const breakVolumeValText = document.getElementById('break-volume-val');
+    const ambientControl = document.getElementById('ambient-control');
+    const ambientDetails = document.getElementById('ambient-details');
+    const ambientVolumeValText = document.getElementById('ambient-volume-val');
+    const ambientSelect = document.getElementById('ambient-select');
+    
+    if (CAFE_IMAGE_PATH) bgImage.style.backgroundImage = `url('${CAFE_IMAGE_PATH}')`;
 
-    if (CAFE_IMAGE_PATH) {
-        bgImage.style.backgroundImage = `url('${CAFE_IMAGE_PATH}')`;
-    }
-
-    bgmAudio.addEventListener('ended', playRandomBGM);
-
-    function changeVolume(val) {
-        currentVolume = parseFloat(val);
-        if (!fadeInterval) {
-            bgmAudio.volume = currentVolume;
+    // --- 環境音の制御 ---
+    function toggleAmbient() {
+        isAmbientOn = document.getElementById('ambient-toggle').checked;
+        if (isAmbientOn) {
+            ambientDetails.classList.remove('collapsed');
+            if (isWorkMode && isRunning) startAmbientSound();
+        } else {
+            ambientDetails.classList.add('collapsed');
+            fadeAmbient(0, 500); // オフ時はフェードアウト
         }
-        volumeValText.textContent = `${Math.round(currentVolume * 100)}%`;
     }
 
-    function playRandomBGM(startWithFade = false) {
+    function changeAmbientSound() {
+        const wasPlaying = !ambientAudio.paused;
+        ambientAudio.src = ambientSelect.value;
+        if (isAmbientOn && isWorkMode && isRunning && wasPlaying) {
+            ambientAudio.play().catch(e => console.log(e));
+        }
+    }
+
+    function changeAmbientVolume(val) {
+        ambientVolume = parseFloat(val);
+        if (!ambientFadeInterval) ambientAudio.volume = ambientVolume;
+        ambientVolumeValText.textContent = `${Math.round(ambientVolume * 100)}%`;
+    }
+
+    function startAmbientSound() {
+        if (!isAmbientOn) return;
+        if (!ambientAudio.src || ambientAudio.src.endsWith(window.location.host + '/')) {
+            ambientAudio.src = ambientSelect.value;
+        }
+        ambientAudio.volume = 0;
+        ambientAudio.play().then(() => {
+            fadeAmbient(ambientVolume, 1000);
+        }).catch(e => console.log("環境音再生エラー:", e));
+    }
+
+    function fadeAmbient(targetVol, durationMs) {
+        if (ambientFadeInterval) clearInterval(ambientFadeInterval);
+        const fps = 30;
+        const totalSteps = Math.floor((durationMs / 1000) * fps);
+        if (totalSteps <= 0) {
+            ambientAudio.volume = targetVol;
+            if (targetVol === 0) ambientAudio.pause();
+            return;
+        }
+        const startVol = ambientAudio.volume;
+        const volChange = targetVol - startVol;
+        let step = 0;
+        ambientFadeInterval = setInterval(() => {
+            step++;
+            ambientAudio.volume = Math.max(0, Math.min(1, startVol + volChange * (step / totalSteps)));
+            if (step >= totalSteps) {
+                clearInterval(ambientFadeInterval);
+                ambientFadeInterval = null;
+                ambientAudio.volume = targetVol;
+                if (targetVol === 0) ambientAudio.pause();
+            }
+        }, durationMs / totalSteps);
+    }
+
+    // --- 休憩BGMの制御 ---
+    function changeBreakVolume(val) {
+        breakVolume = parseFloat(val);
+        if (!fadeInterval) breakAudio.volume = breakVolume;
+        breakVolumeValText.textContent = `${Math.round(breakVolume * 100)}%`;
+    }
+
+    function playRandomBreakBGM(startWithFade = false) {
         if (BGM_LIST.length === 0) return;
+        if (unplayedBgmList.length === 0) unplayedBgmList = [...BGM_LIST];
         
-        if (unplayedBgmList.length === 0) {
-            unplayedBgmList = [...BGM_LIST];
-        }
-
         const randomIndex = Math.floor(Math.random() * unplayedBgmList.length);
-        const selectedBgm = unplayedBgmList[randomIndex];
-        
-        unplayedBgmList.splice(randomIndex, 1);
-
-        bgmAudio.src = selectedBgm;
+        breakAudio.src = unplayedBgmList.splice(randomIndex, 1)[0];
         
         if (startWithFade) {
-            bgmAudio.volume = 0;
-            bgmAudio.play().then(() => {
-                fadeBgm(currentVolume, 1000);
-            }).catch(e => console.log("BGM再生エラー:", e));
+            breakAudio.volume = 0;
+            breakAudio.play().then(() => fadeBreakBgm(breakVolume, 1000)).catch(e => console.log(e));
         } else {
-            bgmAudio.volume = currentVolume;
-            bgmAudio.play().catch(e => console.log("BGM再生エラー:", e));
+            breakAudio.volume = breakVolume;
+            breakAudio.play().catch(e => console.log(e));
         }
     }
 
-    function fadeBgm(targetVol, durationMs, onComplete) {
+    function fadeBreakBgm(targetVol, durationMs, onComplete) {
         if (fadeInterval) clearInterval(fadeInterval);
         const fps = 30;
         const totalSteps = Math.floor((durationMs / 1000) * fps);
-        
         if (totalSteps <= 0) {
-            bgmAudio.volume = targetVol;
-            if (targetVol === 0) bgmAudio.pause();
+            breakAudio.volume = targetVol;
+            if (targetVol === 0) breakAudio.pause();
             if (onComplete) onComplete();
             return;
         }
-
-        const startVol = bgmAudio.volume;
+        const startVol = breakAudio.volume;
         const volChange = targetVol - startVol;
         let step = 0;
-
         fadeInterval = setInterval(() => {
             step++;
-            const currentVol = startVol + volChange * (step / totalSteps);
-            bgmAudio.volume = Math.max(0, Math.min(1, currentVol));
-
+            breakAudio.volume = Math.max(0, Math.min(1, startVol + volChange * (step / totalSteps)));
             if (step >= totalSteps) {
                 clearInterval(fadeInterval);
                 fadeInterval = null;
-                bgmAudio.volume = targetVol;
-                if (targetVol === 0) {
-                    bgmAudio.pause();
-                }
+                breakAudio.volume = targetVol;
+                if (targetVol === 0) breakAudio.pause();
                 if (onComplete) onComplete();
             }
         }, durationMs / totalSteps);
     }
 
-    function playAlertSound() {
-        try {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            if (!AudioContext) return;
-            
-            const ctx = new AudioContext();
-
-            const soundEvents = [
-                { time: 0.0, freq: 880, dur: 0.25 },
-                { time: 0.3, freq: 880, dur: 0.25 },
-                { time: 0.8, freq: 880, dur: 0.25 },
-                { time: 1.1, freq: 880, dur: 0.25 },
-                { time: 1.6, freq: 1046.5, dur: 0.3 },
-                { time: 2.0, freq: 1046.5, dur: 0.3 },
-                { time: 2.4, freq: 1318.5, dur: 0.6 }
-            ];
-
-            soundEvents.forEach(evt => {
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(evt.freq, ctx.currentTime + evt.time);
-                
-                gain.gain.setValueAtTime(0.4, ctx.currentTime + evt.time);
-                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + evt.time + evt.dur);
-                
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                
-                osc.start(ctx.currentTime + evt.time);
-                osc.stop(ctx.currentTime + evt.time + evt.dur);
-            });
-            
-        } catch (error) {
-            console.log("サウンド再生エラー:", error);
-        }
-    }
-
+    // --- タイマーコアロジック ---
     function formatTime(seconds) {
-        const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-        const s = (seconds % 60).toString().padStart(2, '0');
-        return `${m}:${s}`;
+        return `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
     }
 
     function updateDisplay() {
         timerDisplay.textContent = formatTime(timeLeft);
-        sessionCountDisplay.textContent = completedSessions;
+        document.getElementById('session-count').textContent = completedSessions;
 
         if (isWorkMode) {
             modeLabel.textContent = "集中モード";
@@ -519,74 +545,21 @@
             document.body.style.setProperty('--current-bg', 'var(--bg-work)');
             appContainer.style.borderColor = 'rgba(52, 152, 219, 0.4)';
             bgImage.classList.remove('show');
-            volumeControl.classList.remove('active');
+            breakBgmControl.classList.remove('active');
+            ambientControl.style.display = 'block'; // 集中時は環境音UIを表示
         } else {
             modeLabel.textContent = "休憩";
             modeLabel.style.color = "var(--secondary)";
             document.body.style.setProperty('--current-bg', 'var(--bg-break)');
             appContainer.style.borderColor = 'rgba(46, 204, 113, 0.4)';
             if (CAFE_IMAGE_PATH) bgImage.classList.add('show');
-            volumeControl.classList.add('active');
+            breakBgmControl.classList.add('active');
+            ambientControl.style.display = 'none'; // 休憩時は環境音UIを隠す
         }
-    }
-
-    function triggerCutscene(messages, callback) {
-        const randomMsg = messages[Math.floor(Math.random() * messages.length)];
-        cutsceneText.textContent = randomMsg;
-        cutsceneOverlay.classList.remove('slow-fade');
-        cutsceneOverlay.classList.add('active');
-        cutsceneText.classList.add('show');
-
-        setTimeout(() => {
-            if (callback) callback();
-            setTimeout(() => {
-                cutsceneText.classList.remove('show');
-                cutsceneOverlay.classList.remove('active');
-            }, 300);
-        }, 2800);
-    }
-
-    function showNotification(title, message, isWork) {
-        toastTitle.textContent = title;
-        toastMessage.textContent = message;
-        
-        if (isWork) {
-            toast.style.borderColor = "var(--primary)";
-            toastTitle.style.color = "var(--primary)";
-        } else {
-            toast.style.borderColor = "var(--secondary)";
-            toastTitle.style.color = "var(--secondary)";
-        }
-        
-        toast.classList.add('show');
-
-        if (document.visibilityState === 'visible') {
-            playAlertSound();
-        } else {
-            if ("Notification" in window && Notification.permission === "granted") {
-                const desktopNotification = new Notification(title, {
-                    body: message,
-                    requireInteraction: true 
-                });
-
-                desktopNotification.onclick = function() {
-                    window.focus(); 
-                    playAlertSound(); 
-                    this.close(); 
-                };
-            }
-        }
-
-        if (toastTimeout) clearTimeout(toastTimeout);
-        toastTimeout = setTimeout(() => {
-            toast.classList.remove('show');
-        }, 4000);
     }
 
     function runTimerLoop() {
-        if (!targetEndTime) {
-            targetEndTime = Date.now() + timeLeft * 1000;
-        }
+        if (!targetEndTime) targetEndTime = Date.now() + timeLeft * 1000;
 
         timerId = setInterval(() => {
             const now = Date.now();
@@ -594,66 +567,50 @@
             updateDisplay();
 
             if (!isWorkMode && timeLeft === 10) {
-                fadeBgm(0, 9000); 
-                cutsceneText.textContent = "";
-                cutsceneText.classList.remove('show');
-                cutsceneOverlay.classList.add('slow-fade');
-                cutsceneOverlay.classList.add('active'); 
+                fadeBreakBgm(0, 9000); 
+                const overlay = document.getElementById('cutscene-overlay');
+                overlay.classList.add('slow-fade', 'active'); 
             }
 
             if (timeLeft <= 0) {
                 clearInterval(timerId);
                 timerId = null;
-                const wasWorkMode = isWorkMode;
                 
-                if (wasWorkMode) {
+                if (isWorkMode) {
                     completedSessions++; 
+                    fadeAmbient(0, 2000); // 集中終了時に環境音フェードアウト
                     
                     triggerCutscene(WORK_END_MESSAGES, () => {
                         isWorkMode = false;
                         timeLeft = BREAK_TIME;
                         updateDisplay();
-                        showNotification("お疲れ様でした", "5分間の休憩です。リフレッシュしましょう。", false);
-                        
+                        showNotification("お疲れ様でした", "5分間の休憩です。", false);
                         unplayedBgmList = [...BGM_LIST];
-
-                        if (bgmStartTimeout) clearTimeout(bgmStartTimeout);
-                        bgmStartTimeout = setTimeout(() => {
-                            if (!isWorkMode && isRunning) {
-                                playRandomBGM(true);
-                            }
-                        }, 3000);
-
+                        bgmStartTimeout = setTimeout(() => { if (!isWorkMode && isRunning) playRandomBreakBGM(true); }, 3000);
                         targetEndTime = Date.now() + timeLeft * 1000;
                         runTimerLoop();
                     });
-
                 } else {
                     const randomMsg = BREAK_END_MESSAGES[Math.floor(Math.random() * BREAK_END_MESSAGES.length)];
-                    cutsceneText.textContent = randomMsg;
-                    
-                    setTimeout(() => {
-                        cutsceneText.classList.add('show');
-                    }, 100);
+                    const cText = document.getElementById('cutscene-text');
+                    cText.textContent = randomMsg;
+                    setTimeout(() => cText.classList.add('show'), 100);
 
                     isWorkMode = true;
                     timeLeft = WORK_TIME;
                     updateDisplay(); 
 
                     setTimeout(() => {
-                        cutsceneText.classList.remove('show');
-                        
+                        cText.classList.remove('show');
                         setTimeout(() => {
-                            fadeBgm(0, 300);
-                            cutsceneOverlay.classList.remove('slow-fade', 'active');
-
+                            fadeBreakBgm(0, 300);
+                            document.getElementById('cutscene-overlay').classList.remove('slow-fade', 'active');
                             showNotification("休憩終了", "25分間の集中モードを開始します。", true);
-                            
                             targetEndTime = Date.now() + timeLeft * 1000;
                             isRunning = true;
+                            if (isAmbientOn) startAmbientSound(); // 集中開始時に環境音再生
                             runTimerLoop();
                         }, 500);
-
                     }, 2800);
                 }
             }
@@ -662,25 +619,19 @@
 
     function startTimer() {
         if (isRunning) return; 
-        
-        if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
-            Notification.requestPermission();
-        }
-
         isRunning = true;
         targetEndTime = Date.now() + timeLeft * 1000;
 
-        if (!isWorkMode) {
-            if (bgmAudio.src && bgmAudio.paused) {
-                bgmAudio.volume = 0;
-                bgmAudio.play().then(() => {
-                    fadeBgm(currentVolume, 1000);
-                }).catch(e => console.log("BGM再生エラー:", e));
-            } else if (!bgmAudio.src) {
-                playRandomBGM(true);
+        if (isWorkMode) {
+            if (isAmbientOn) startAmbientSound();
+        } else {
+            if (breakAudio.src && breakAudio.paused) {
+                breakAudio.volume = 0;
+                breakAudio.play().then(() => fadeBreakBgm(breakVolume, 1000)).catch(e => console.log(e));
+            } else if (!breakAudio.src) {
+                playRandomBreakBGM(true);
             }
         }
-
         runTimerLoop();
     }
 
@@ -691,12 +642,13 @@
         targetEndTime = null; 
         if (bgmStartTimeout) clearTimeout(bgmStartTimeout);
 
-        if (!isWorkMode && !bgmAudio.paused) {
-            fadeBgm(0, 800);
+        if (isWorkMode) {
+            fadeAmbient(0, 800);
+        } else {
+            if (!breakAudio.paused) fadeBreakBgm(0, 800);
         }
-
-        cutsceneOverlay.classList.remove('slow-fade', 'active');
-        cutsceneText.classList.remove('show');
+        document.getElementById('cutscene-overlay').classList.remove('slow-fade', 'active');
+        document.getElementById('cutscene-text').classList.remove('show');
     }
 
     function resetTimer() {
@@ -707,13 +659,37 @@
         timeLeft = WORK_TIME;
         targetEndTime = null; 
         updateDisplay();
-        toast.classList.remove('show');
         
         if (bgmStartTimeout) clearTimeout(bgmStartTimeout);
-        fadeBgm(0, 500);
+        fadeBreakBgm(0, 500);
+        fadeAmbient(0, 500);
 
-        cutsceneOverlay.classList.remove('slow-fade', 'active');
-        cutsceneText.classList.remove('show');
+        document.getElementById('cutscene-overlay').classList.remove('slow-fade', 'active');
+        document.getElementById('cutscene-text').classList.remove('show');
+    }
+
+    // ユーティリティ（通知・カットシーン）
+    function triggerCutscene(messages, callback) {
+        const overlay = document.getElementById('cutscene-overlay');
+        const text = document.getElementById('cutscene-text');
+        text.textContent = messages[Math.floor(Math.random() * messages.length)];
+        overlay.classList.remove('slow-fade'); overlay.classList.add('active');
+        text.classList.add('show');
+        setTimeout(() => {
+            if (callback) callback();
+            setTimeout(() => { text.classList.remove('show'); overlay.classList.remove('active'); }, 300);
+        }, 2800);
+    }
+
+    function showNotification(title, message, isWork) {
+        const toast = document.getElementById('toast');
+        document.getElementById('toast-title').textContent = title;
+        document.getElementById('toast-message').textContent = message;
+        toast.style.borderColor = isWork ? "var(--primary)" : "var(--secondary)";
+        document.getElementById('toast-title').style.color = isWork ? "var(--primary)" : "var(--secondary)";
+        toast.classList.add('show');
+        if (toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => toast.classList.remove('show'), 4000);
     }
     
     updateDisplay();
