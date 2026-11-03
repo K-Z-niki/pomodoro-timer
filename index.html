@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>作業用 ポモドーロタイマー Ver.1.3.1</title>
+    <title>作業用 ポモドーロタイマー Ver.1.3.3</title>
     <style>
         :root {
             --bg-work: #1a252c;
@@ -211,7 +211,6 @@
     <div id="mode-label">集中モード</div>
     <div id="timer">25:00</div>
     
-    <!-- 環境音コントロール (作業用) -->
     <div class="control-group" id="ambient-control">
         <div class="control-header">
             <span>🌿 集中用環境音</span>
@@ -235,7 +234,6 @@
         </div>
     </div>
 
-    <!-- 休憩BGMコントロール (休憩用) -->
     <div class="control-group" id="break-bgm-control">
         <div class="control-header">
             <span>🎵 休憩BGM音量</span>
@@ -256,11 +254,70 @@
     <div id="toast-message">メッセージ</div>
 </div>
 
-<!-- バージョン更新 -->
-<div id="version-display">Ver.1.3.1</div>
+<div id="version-display">Ver.1.3.3</div>
 
 <script>
-    // --- 休憩用BGM設定 (既存のHTML Audio) ---
+    // --- 音響エンジン共通コンテキスト ---
+    let sharedAudioCtx = null;
+    let ambientGain = null;
+
+    function initSharedAudioCtx() {
+        if (!sharedAudioCtx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            sharedAudioCtx = new AudioContext();
+            ambientGain = sharedAudioCtx.createGain();
+            ambientGain.connect(sharedAudioCtx.destination);
+        }
+        if (sharedAudioCtx.state === 'suspended') {
+            sharedAudioCtx.resume();
+        }
+    }
+
+    // --- 通知音再生ロジック (正義の完全復元＆爆音化パッチ) ---
+    function playAlertSound() {
+        try {
+            if (!sharedAudioCtx) return;
+            if (sharedAudioCtx.state === 'suspended') {
+                sharedAudioCtx.resume();
+            }
+
+            const soundEvents = [
+                { time: 0.0, freq: 880, dur: 0.25 },
+                { time: 0.3, freq: 880, dur: 0.25 },
+                { time: 0.8, freq: 880, dur: 0.25 },
+                { time: 1.1, freq: 880, dur: 0.25 },
+                { time: 1.6, freq: 1046.5, dur: 0.3 },
+                { time: 2.0, freq: 1046.5, dur: 0.3 },
+                { time: 2.4, freq: 1318.5, dur: 0.6 }
+            ];
+
+            // 基準となる現在時刻を一度だけ取得し、ループ内のズレを完全に排除！
+            const now = sharedAudioCtx.currentTime;
+
+            soundEvents.forEach(evt => {
+                const osc = sharedAudioCtx.createOscillator();
+                const gain = sharedAudioCtx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(evt.freq, now + evt.time);
+                
+                // 音量(Gain)を元の0.4から1.0(限界値)まで引き上げ、ハッキリ聞こえるように修正！
+                gain.gain.setValueAtTime(1.0, now + evt.time);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + evt.time + evt.dur);
+                
+                osc.connect(gain);
+                gain.connect(sharedAudioCtx.destination);
+                
+                osc.start(now + evt.time);
+                osc.stop(now + evt.time + evt.dur);
+            });
+            
+        } catch (error) {
+            console.log("サウンド再生エラー:", error);
+        }
+    }
+
+    // --- 休憩用BGM設定 ---
     const BGM_LIST = [
         "Lo-fi/1.mp3", "Lo-fi/2.mp3", "Lo-fi/3.mp3", "Lo-fi/4.mp3",
         "Lo-fi/5.mp3", "Lo-fi/6.mp3", "Lo-fi/7.mp3"
@@ -272,25 +329,12 @@
     breakAudio.loop = false;
     breakAudio.addEventListener('ended', playRandomBreakBGM);
 
-    // --- 集中用環境音設定 (★Web Audio APIによる究極のギャップレス再生★) ---
+    // --- 集中用環境音設定 ---
     let ambientVolume = 0.4;
     let isAmbientOn = false;
-    
-    let audioCtx = null;
-    let ambientGain = null;
     let ambientBuffer = null;
     let ambientSource = null;
     let currentAmbientUrl = "";
-
-    function initAudioCtx() {
-        if (!audioCtx) {
-            const AudioContext = window.AudioContext || window.webkitAudioContext;
-            audioCtx = new AudioContext();
-            ambientGain = audioCtx.createGain();
-            ambientGain.gain.value = ambientVolume;
-            ambientGain.connect(audioCtx.destination);
-        }
-    }
 
     function stopAmbientSource() {
         if (ambientSource) {
@@ -303,16 +347,15 @@
     }
 
     async function loadAmbientSound(url) {
-        initAudioCtx();
+        initSharedAudioCtx();
         try {
             const response = await fetch(url);
             if (!response.ok) throw new Error("Network response was not ok");
             const arrayBuffer = await response.arrayBuffer();
-            ambientBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            ambientBuffer = await sharedAudioCtx.decodeAudioData(arrayBuffer);
             currentAmbientUrl = url;
         } catch (e) {
-            console.error("環境音ロードエラー (※ローカル実行時のCORSエラーの可能性):", e);
-            showNotification("ロードエラー", "Live Server等を利用して起動してください", true);
+            console.error("環境音ロードエラー:", e);
         }
     }
 
@@ -347,8 +390,8 @@
     function changeAmbientVolume(val) {
         ambientVolume = parseFloat(val);
         document.getElementById('ambient-volume-val').textContent = `${Math.round(ambientVolume * 100)}%`;
-        if (ambientGain) {
-            const now = audioCtx.currentTime;
+        if (ambientGain && sharedAudioCtx) {
+            const now = sharedAudioCtx.currentTime;
             ambientGain.gain.cancelScheduledValues(now);
             ambientGain.gain.setValueAtTime(ambientVolume, now);
         }
@@ -356,24 +399,22 @@
 
     async function startAmbientSound() {
         if (!isAmbientOn) return;
-        initAudioCtx();
-        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        initSharedAudioCtx();
 
         const selectedUrl = document.getElementById('ambient-select').value;
         if (!ambientBuffer || currentAmbientUrl !== selectedUrl) {
             await loadAmbientSound(selectedUrl);
         }
         
-        stopAmbientSource(); // 重複再生を防ぐ
-        if (!ambientBuffer) return; // ロード失敗時は抜ける
+        stopAmbientSource(); 
+        if (!ambientBuffer) return; 
 
-        ambientSource = audioCtx.createBufferSource();
+        ambientSource = sharedAudioCtx.createBufferSource();
         ambientSource.buffer = ambientBuffer;
-        ambientSource.loop = true; // Web Audio APIの完璧なループ
+        ambientSource.loop = true; 
         ambientSource.connect(ambientGain);
         
-        // フェードイン処理
-        const now = audioCtx.currentTime;
+        const now = sharedAudioCtx.currentTime;
         ambientGain.gain.cancelScheduledValues(now);
         ambientGain.gain.setValueAtTime(0, now);
         ambientGain.gain.linearRampToValueAtTime(ambientVolume, now + 1.0);
@@ -382,8 +423,8 @@
     }
 
     function fadeAmbient(targetVol, durationMs) {
-        if (!ambientGain) return;
-        const now = audioCtx.currentTime;
+        if (!ambientGain || !sharedAudioCtx) return;
+        const now = sharedAudioCtx.currentTime;
         ambientGain.gain.cancelScheduledValues(now);
         ambientGain.gain.setValueAtTime(ambientGain.gain.value, now);
         ambientGain.gain.linearRampToValueAtTime(targetVol, now + (durationMs / 1000));
@@ -391,7 +432,6 @@
         if (targetVol === 0) {
             const sourceToStop = ambientSource;
             setTimeout(() => {
-                // フェードアウト完了後に、対象が今のソースと同じなら停止
                 if (ambientSource === sourceToStop) {
                     stopAmbientSource();
                 }
@@ -399,7 +439,7 @@
         }
     }
 
-    // --- 全体設定・タイマーコアロジック ---
+    // --- タイマーコアロジック ---
     const CAFE_IMAGE_PATH = "img/cafe.jpg";
     const WORK_TIME = 25 * 60;
     const BREAK_TIME = 5 * 60;
@@ -415,8 +455,32 @@
     let bgmStartTimeout = null;
     let fadeInterval = null;
 
-    const WORK_END_MESSAGES = ["お疲れ様！素晴らしい集中力でした！", "よく頑張ったね！しっかり休もう！"];
-    const BREAK_END_MESSAGES = ["もう自分には負けない", "掴むんだ、最高の舞台を！", "心頭滅却"];
+    // ★ヒーローによる復元：失われていた君の大切なメッセージたちを完全復活！★
+    const WORK_END_MESSAGES = [
+        "お疲れ様！素晴らしい集中力でした！",
+        "よく頑張ったね！しっかり休もう！",
+        "休憩が終わったらもう一回楽しもう！",
+        "一歩前進！最高の作業時間！",
+        "ナイスファイト！深呼吸してリラックスしよう！",
+        "集中モード達成！自分を褒めてあげてね！",
+        "お疲れ様！少し肩の力を抜こう！",
+        "今日も最高に輝いてるよ！",
+        "素晴らしい積み重ね！次の準備へ！"
+    ];
+
+    const BREAK_END_MESSAGES = [
+        "もう自分には負けない",
+        "掴むんだ、最高の舞台を！",
+        "あともう一回頑張ろう",
+        "限界を超えて、次のレベルへ！",
+        "君ならできる！さあ集中しよう！",
+        "夢に向かって、もう一歩！",
+        "未来の自分への最高の投資だ！",
+        "目指そうぜ、まだ見ぬ自分を！",
+        "まだ諦めるには早すぎるんじゃないのか？",
+        "心頭滅却",
+        "明鏡止水"
+    ];
 
     const timerDisplay = document.getElementById('timer');
     const modeLabel = document.getElementById('mode-label');
@@ -428,7 +492,6 @@
     
     if (CAFE_IMAGE_PATH) bgImage.style.backgroundImage = `url('${CAFE_IMAGE_PATH}')`;
 
-    // 休憩BGMフェード
     function changeBreakVolume(val) {
         breakVolume = parseFloat(val);
         if (!fadeInterval) breakAudio.volume = breakVolume;
@@ -477,7 +540,6 @@
         }, durationMs / totalSteps);
     }
 
-    // 表示更新
     function formatTime(seconds) {
         return `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
     }
@@ -525,7 +587,7 @@
                 
                 if (isWorkMode) {
                     completedSessions++; 
-                    fadeAmbient(0, 2000); // 集中終了時に環境音フェードアウト
+                    fadeAmbient(0, 2000); 
                     
                     triggerCutscene(WORK_END_MESSAGES, () => {
                         isWorkMode = false;
@@ -555,7 +617,7 @@
                             showNotification("休憩終了", "25分間の集中モードを開始します。", true);
                             targetEndTime = Date.now() + timeLeft * 1000;
                             isRunning = true;
-                            if (isAmbientOn) startAmbientSound(); // 集中開始時に環境音再生
+                            if (isAmbientOn) startAmbientSound(); 
                             runTimerLoop();
                         }, 500);
                     }, 2800);
@@ -566,6 +628,13 @@
 
     function startTimer() {
         if (isRunning) return; 
+
+        initSharedAudioCtx();
+        
+        if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+            Notification.requestPermission();
+        }
+
         isRunning = true;
         targetEndTime = Date.now() + timeLeft * 1000;
 
@@ -583,6 +652,7 @@
     }
 
     function pauseTimer() {
+        initSharedAudioCtx();
         clearInterval(timerId);
         timerId = null;
         isRunning = false;
@@ -599,6 +669,7 @@
     }
 
     function resetTimer() {
+        initSharedAudioCtx();
         clearInterval(timerId);
         timerId = null;
         isRunning = false;
@@ -634,6 +705,24 @@
         toast.style.borderColor = isWork ? "var(--primary)" : "var(--secondary)";
         document.getElementById('toast-title').style.color = isWork ? "var(--primary)" : "var(--secondary)";
         toast.classList.add('show');
+
+        if (document.visibilityState === 'visible') {
+            playAlertSound();
+        } else {
+            if ("Notification" in window && Notification.permission === "granted") {
+                const desktopNotification = new Notification(title, {
+                    body: message,
+                    requireInteraction: true 
+                });
+
+                desktopNotification.onclick = function() {
+                    window.focus(); 
+                    playAlertSound(); 
+                    this.close(); 
+                };
+            }
+        }
+
         if (toastTimeout) clearTimeout(toastTimeout);
         toastTimeout = setTimeout(() => toast.classList.remove('show'), 4000);
     }
