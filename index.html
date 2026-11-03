@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>作業用 ポモドーロタイマー Ver.1.3</title>
+    <title>作業用 ポモドーロタイマー Ver.1.3.1</title>
     <style>
         :root {
             --bg-work: #1a252c;
@@ -43,9 +43,7 @@
             pointer-events: none;
         }
 
-        #bg-image.show {
-            opacity: 0.4;
-        }
+        #bg-image.show { opacity: 0.4; }
 
         .container {
             background: rgba(255, 255, 255, 0.08);
@@ -76,200 +74,96 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
 
-        h1 {
-            margin: 0 0 10px 0;
-            font-size: 22px;
-            letter-spacing: 2px;
-            color: #fff;
-        }
+        h1 { margin: 0 0 10px 0; font-size: 22px; letter-spacing: 2px; color: #fff; }
 
         #mode-label {
-            font-size: 20px;
-            font-weight: bold;
-            color: var(--primary);
-            margin-bottom: 5px;
-            text-transform: uppercase;
-            transition: color 0.8s ease;
+            font-size: 20px; font-weight: bold; color: var(--primary);
+            margin-bottom: 5px; text-transform: uppercase; transition: color 0.8s ease;
         }
 
         #timer {
-            font-size: 72px;
-            font-weight: bold;
-            margin: 15px 0;
-            font-family: monospace;
-            text-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            font-size: 72px; font-weight: bold; margin: 15px 0;
+            font-family: monospace; text-shadow: 0 4px 12px rgba(0,0,0,0.4);
         }
 
-        /* カスタムコントロールエリア */
         .control-group {
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 12px;
-            padding: 12px;
-            margin-bottom: 15px;
-            text-align: left;
+            background: rgba(0, 0, 0, 0.2); border-radius: 12px;
+            padding: 12px; margin-bottom: 15px; text-align: left;
         }
 
         .control-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 14px;
-            color: #bdc3c7;
-            margin-bottom: 8px;
-            font-weight: bold;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 14px; color: #bdc3c7; margin-bottom: 8px; font-weight: bold;
         }
 
         .control-details {
-            overflow: hidden;
-            max-height: 100px;
-            opacity: 1;
-            transition: all 0.4s ease;
+            overflow: hidden; max-height: 100px; opacity: 1; transition: all 0.4s ease;
         }
+        .control-details.collapsed { max-height: 0; opacity: 0; margin: 0; }
 
-        .control-details.collapsed {
-            max-height: 0;
-            opacity: 0;
-            margin: 0;
-        }
-
-        /* 休憩BGM用（非表示切り替え用） */
         #break-bgm-control {
-            max-height: 0;
-            opacity: 0;
-            padding: 0;
-            margin: 0;
-            overflow: hidden;
-            transition: all 0.6s ease;
+            max-height: 0; opacity: 0; padding: 0; margin: 0;
+            overflow: hidden; transition: all 0.6s ease;
         }
-
         #break-bgm-control.active {
-            max-height: 120px;
-            opacity: 1;
-            padding: 12px;
-            margin-bottom: 15px;
+            max-height: 120px; opacity: 1; padding: 12px; margin-bottom: 15px;
         }
 
         select {
-            width: 100%;
-            padding: 8px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #fff;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            outline: none;
+            width: 100%; padding: 8px; background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2); color: #fff;
+            border-radius: 8px; margin-bottom: 10px; outline: none;
             font-family: var(--font-gothic);
         }
-
-        select option {
-            background: #2c3e50;
-            color: #fff;
-        }
+        select option { background: #2c3e50; color: #fff; }
 
         .volume-label {
-            font-size: 12px;
-            color: #bdc3c7;
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 6px;
+            font-size: 12px; color: #bdc3c7; display: flex;
+            justify-content: space-between; margin-bottom: 6px;
         }
 
-        input[type=range] {
-            -webkit-appearance: none;
-            width: 100%;
-            background: transparent;
-        }
-
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
         input[type=range]:focus { outline: none; }
-
         input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 6px;
-            cursor: pointer;
-            background: rgba(255, 255, 255, 0.25);
-            border-radius: 3px;
+            width: 100%; height: 6px; cursor: pointer;
+            background: rgba(255, 255, 255, 0.25); border-radius: 3px;
         }
-
         input[type=range]::-webkit-slider-thumb {
-            height: 16px;
-            width: 16px;
-            border-radius: 50%;
-            background: var(--primary);
-            cursor: pointer;
-            -webkit-appearance: none;
-            margin-top: -5px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            height: 16px; width: 16px; border-radius: 50%;
+            background: var(--primary); cursor: pointer; -webkit-appearance: none;
+            margin-top: -5px; box-shadow: 0 2px 6px rgba(0,0,0,0.4);
         }
+        #break-volume-slider::-webkit-slider-thumb { background: #2ecc71; }
 
-        #break-volume-slider::-webkit-slider-thumb {
-            background: #2ecc71;
-        }
-
-        /* トグルスイッチ */
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 40px;
-            height: 20px;
-        }
+        .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: rgba(255,255,255,0.2);
-            transition: .4s;
-            border-radius: 20px;
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255,255,255,0.2); transition: .4s; border-radius: 20px;
         }
         .slider:before {
-            position: absolute;
-            content: "";
-            height: 14px; width: 14px;
-            left: 3px; bottom: 3px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
+            position: absolute; content: ""; height: 14px; width: 14px;
+            left: 3px; bottom: 3px; background-color: white;
+            transition: .4s; border-radius: 50%;
         }
         input:checked + .slider { background-color: var(--primary); }
         input:focus + .slider { box-shadow: 0 0 1px var(--primary); }
         input:checked + .slider:before { transform: translateX(20px); }
 
-        .buttons {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            margin-top: 15px;
-        }
-
+        .buttons { display: flex; justify-content: space-between; gap: 12px; margin-top: 15px; }
         button {
-            flex: 1;
-            padding: 14px 10px;
-            font-size: 15px;
-            font-weight: bold;
-            color: white;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
+            flex: 1; padding: 14px 10px; font-size: 15px; font-weight: bold; color: white;
+            border: none; border-radius: 12px; cursor: pointer;
             transition: transform 0.1s, opacity 0.2s, box-shadow 0.2s;
             box-shadow: 0 4px 8px rgba(0,0,0,0.3);
         }
-
-        button:hover {
-            opacity: 0.9;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 14px rgba(0,0,0,0.4);
-        }
-
-        button:active {
-            transform: translateY(2px);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
+        button:hover { opacity: 0.9; transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0,0,0,0.4); }
+        button:active { transform: translateY(2px); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
         #start-btn { background-color: #2ecc71; }
         #pause-btn { background-color: #f1c40f; color: #2c3e50; }
         #reset-btn { background-color: #e74c3c; }
 
-        /* カットシーン＆トースト（既存ママ） */
         #cutscene-overlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background-color: #000000; z-index: 999; display: flex;
@@ -309,10 +203,7 @@
 <body>
 
 <div id="bg-image"></div>
-
-<div id="cutscene-overlay">
-    <div id="cutscene-text">メッセージ</div>
-</div>
+<div id="cutscene-overlay"><div id="cutscene-text">メッセージ</div></div>
 
 <div class="container" id="app-container">
     <div class="counter-badge">達成回数: <span id="session-count">0</span> 回</div>
@@ -366,10 +257,10 @@
 </div>
 
 <!-- バージョン更新 -->
-<div id="version-display">Ver.1.3</div>
+<div id="version-display">Ver.1.3.1</div>
 
 <script>
-    // --- 休憩用BGM設定 ---
+    // --- 休憩用BGM設定 (既存のHTML Audio) ---
     const BGM_LIST = [
         "Lo-fi/1.mp3", "Lo-fi/2.mp3", "Lo-fi/3.mp3", "Lo-fi/4.mp3",
         "Lo-fi/5.mp3", "Lo-fi/6.mp3", "Lo-fi/7.mp3"
@@ -381,13 +272,134 @@
     breakAudio.loop = false;
     breakAudio.addEventListener('ended', playRandomBreakBGM);
 
-    // --- 集中用環境音設定 ---
+    // --- 集中用環境音設定 (★Web Audio APIによる究極のギャップレス再生★) ---
     let ambientVolume = 0.4;
     let isAmbientOn = false;
-    const ambientAudio = new Audio();
-    ambientAudio.volume = ambientVolume;
-    ambientAudio.loop = true; // 環境音はループ再生
+    
+    let audioCtx = null;
+    let ambientGain = null;
+    let ambientBuffer = null;
+    let ambientSource = null;
+    let currentAmbientUrl = "";
 
+    function initAudioCtx() {
+        if (!audioCtx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            ambientGain = audioCtx.createGain();
+            ambientGain.gain.value = ambientVolume;
+            ambientGain.connect(audioCtx.destination);
+        }
+    }
+
+    function stopAmbientSource() {
+        if (ambientSource) {
+            try {
+                ambientSource.stop();
+                ambientSource.disconnect();
+            } catch(e) {}
+            ambientSource = null;
+        }
+    }
+
+    async function loadAmbientSound(url) {
+        initAudioCtx();
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("Network response was not ok");
+            const arrayBuffer = await response.arrayBuffer();
+            ambientBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            currentAmbientUrl = url;
+        } catch (e) {
+            console.error("環境音ロードエラー (※ローカル実行時のCORSエラーの可能性):", e);
+            showNotification("ロードエラー", "Live Server等を利用して起動してください", true);
+        }
+    }
+
+    function toggleAmbient() {
+        isAmbientOn = document.getElementById('ambient-toggle').checked;
+        if (isAmbientOn) {
+            document.getElementById('ambient-details').classList.remove('collapsed');
+            if (isWorkMode && isRunning) startAmbientSound();
+        } else {
+            document.getElementById('ambient-details').classList.add('collapsed');
+            fadeAmbient(0, 500); 
+        }
+    }
+
+    async function changeAmbientSound() {
+        const selectedUrl = document.getElementById('ambient-select').value;
+        if (currentAmbientUrl === selectedUrl) return; 
+
+        const wasPlaying = !!ambientSource; 
+        if (ambientSource) {
+            fadeAmbient(0, 300); 
+            setTimeout(() => stopAmbientSource(), 300);
+        }
+        
+        await loadAmbientSound(selectedUrl);
+        
+        if (isAmbientOn && isWorkMode && isRunning && wasPlaying) {
+            startAmbientSound();
+        }
+    }
+
+    function changeAmbientVolume(val) {
+        ambientVolume = parseFloat(val);
+        document.getElementById('ambient-volume-val').textContent = `${Math.round(ambientVolume * 100)}%`;
+        if (ambientGain) {
+            const now = audioCtx.currentTime;
+            ambientGain.gain.cancelScheduledValues(now);
+            ambientGain.gain.setValueAtTime(ambientVolume, now);
+        }
+    }
+
+    async function startAmbientSound() {
+        if (!isAmbientOn) return;
+        initAudioCtx();
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+        const selectedUrl = document.getElementById('ambient-select').value;
+        if (!ambientBuffer || currentAmbientUrl !== selectedUrl) {
+            await loadAmbientSound(selectedUrl);
+        }
+        
+        stopAmbientSource(); // 重複再生を防ぐ
+        if (!ambientBuffer) return; // ロード失敗時は抜ける
+
+        ambientSource = audioCtx.createBufferSource();
+        ambientSource.buffer = ambientBuffer;
+        ambientSource.loop = true; // Web Audio APIの完璧なループ
+        ambientSource.connect(ambientGain);
+        
+        // フェードイン処理
+        const now = audioCtx.currentTime;
+        ambientGain.gain.cancelScheduledValues(now);
+        ambientGain.gain.setValueAtTime(0, now);
+        ambientGain.gain.linearRampToValueAtTime(ambientVolume, now + 1.0);
+        
+        ambientSource.start(0);
+    }
+
+    function fadeAmbient(targetVol, durationMs) {
+        if (!ambientGain) return;
+        const now = audioCtx.currentTime;
+        ambientGain.gain.cancelScheduledValues(now);
+        ambientGain.gain.setValueAtTime(ambientGain.gain.value, now);
+        ambientGain.gain.linearRampToValueAtTime(targetVol, now + (durationMs / 1000));
+        
+        if (targetVol === 0) {
+            const sourceToStop = ambientSource;
+            setTimeout(() => {
+                // フェードアウト完了後に、対象が今のソースと同じなら停止
+                if (ambientSource === sourceToStop) {
+                    stopAmbientSource();
+                }
+            }, durationMs);
+        }
+    }
+
+    // --- 全体設定・タイマーコアロジック ---
     const CAFE_IMAGE_PATH = "img/cafe.jpg";
     const WORK_TIME = 25 * 60;
     const BREAK_TIME = 5 * 60;
@@ -402,7 +414,6 @@
     let toastTimeout = null;
     let bgmStartTimeout = null;
     let fadeInterval = null;
-    let ambientFadeInterval = null;
 
     const WORK_END_MESSAGES = ["お疲れ様！素晴らしい集中力でした！", "よく頑張ったね！しっかり休もう！"];
     const BREAK_END_MESSAGES = ["もう自分には負けない", "掴むんだ、最高の舞台を！", "心頭滅却"];
@@ -414,74 +425,10 @@
     const breakBgmControl = document.getElementById('break-bgm-control');
     const breakVolumeValText = document.getElementById('break-volume-val');
     const ambientControl = document.getElementById('ambient-control');
-    const ambientDetails = document.getElementById('ambient-details');
-    const ambientVolumeValText = document.getElementById('ambient-volume-val');
-    const ambientSelect = document.getElementById('ambient-select');
     
     if (CAFE_IMAGE_PATH) bgImage.style.backgroundImage = `url('${CAFE_IMAGE_PATH}')`;
 
-    // --- 環境音の制御 ---
-    function toggleAmbient() {
-        isAmbientOn = document.getElementById('ambient-toggle').checked;
-        if (isAmbientOn) {
-            ambientDetails.classList.remove('collapsed');
-            if (isWorkMode && isRunning) startAmbientSound();
-        } else {
-            ambientDetails.classList.add('collapsed');
-            fadeAmbient(0, 500); // オフ時はフェードアウト
-        }
-    }
-
-    function changeAmbientSound() {
-        const wasPlaying = !ambientAudio.paused;
-        ambientAudio.src = ambientSelect.value;
-        if (isAmbientOn && isWorkMode && isRunning && wasPlaying) {
-            ambientAudio.play().catch(e => console.log(e));
-        }
-    }
-
-    function changeAmbientVolume(val) {
-        ambientVolume = parseFloat(val);
-        if (!ambientFadeInterval) ambientAudio.volume = ambientVolume;
-        ambientVolumeValText.textContent = `${Math.round(ambientVolume * 100)}%`;
-    }
-
-    function startAmbientSound() {
-        if (!isAmbientOn) return;
-        if (!ambientAudio.src || ambientAudio.src.endsWith(window.location.host + '/')) {
-            ambientAudio.src = ambientSelect.value;
-        }
-        ambientAudio.volume = 0;
-        ambientAudio.play().then(() => {
-            fadeAmbient(ambientVolume, 1000);
-        }).catch(e => console.log("環境音再生エラー:", e));
-    }
-
-    function fadeAmbient(targetVol, durationMs) {
-        if (ambientFadeInterval) clearInterval(ambientFadeInterval);
-        const fps = 30;
-        const totalSteps = Math.floor((durationMs / 1000) * fps);
-        if (totalSteps <= 0) {
-            ambientAudio.volume = targetVol;
-            if (targetVol === 0) ambientAudio.pause();
-            return;
-        }
-        const startVol = ambientAudio.volume;
-        const volChange = targetVol - startVol;
-        let step = 0;
-        ambientFadeInterval = setInterval(() => {
-            step++;
-            ambientAudio.volume = Math.max(0, Math.min(1, startVol + volChange * (step / totalSteps)));
-            if (step >= totalSteps) {
-                clearInterval(ambientFadeInterval);
-                ambientFadeInterval = null;
-                ambientAudio.volume = targetVol;
-                if (targetVol === 0) ambientAudio.pause();
-            }
-        }, durationMs / totalSteps);
-    }
-
-    // --- 休憩BGMの制御 ---
+    // 休憩BGMフェード
     function changeBreakVolume(val) {
         breakVolume = parseFloat(val);
         if (!fadeInterval) breakAudio.volume = breakVolume;
@@ -530,7 +477,7 @@
         }, durationMs / totalSteps);
     }
 
-    // --- タイマーコアロジック ---
+    // 表示更新
     function formatTime(seconds) {
         return `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
     }
@@ -546,7 +493,7 @@
             appContainer.style.borderColor = 'rgba(52, 152, 219, 0.4)';
             bgImage.classList.remove('show');
             breakBgmControl.classList.remove('active');
-            ambientControl.style.display = 'block'; // 集中時は環境音UIを表示
+            ambientControl.style.display = 'block'; 
         } else {
             modeLabel.textContent = "休憩";
             modeLabel.style.color = "var(--secondary)";
@@ -554,7 +501,7 @@
             appContainer.style.borderColor = 'rgba(46, 204, 113, 0.4)';
             if (CAFE_IMAGE_PATH) bgImage.classList.add('show');
             breakBgmControl.classList.add('active');
-            ambientControl.style.display = 'none'; // 休憩時は環境音UIを隠す
+            ambientControl.style.display = 'none'; 
         }
     }
 
@@ -668,7 +615,6 @@
         document.getElementById('cutscene-text').classList.remove('show');
     }
 
-    // ユーティリティ（通知・カットシーン）
     function triggerCutscene(messages, callback) {
         const overlay = document.getElementById('cutscene-overlay');
         const text = document.getElementById('cutscene-text');
