@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>作業用 ポモドーロタイマー Ver.1.3.3</title>
+    <title>作業用 ポモドーロタイマー Ver.1.3.4</title>
     <style>
         :root {
             --bg-work: #1a252c;
@@ -254,7 +254,7 @@
     <div id="toast-message">メッセージ</div>
 </div>
 
-<div id="version-display">Ver.1.3.3</div>
+<div id="version-display">Ver.1.3.4</div>
 
 <script>
     // --- 音響エンジン共通コンテキスト ---
@@ -273,7 +273,7 @@
         }
     }
 
-    // --- 通知音再生ロジック (正義の完全復元＆爆音化パッチ) ---
+    // --- 通知音再生ロジック ---
     function playAlertSound() {
         try {
             if (!sharedAudioCtx) return;
@@ -291,7 +291,6 @@
                 { time: 2.4, freq: 1318.5, dur: 0.6 }
             ];
 
-            // 基準となる現在時刻を一度だけ取得し、ループ内のズレを完全に排除！
             const now = sharedAudioCtx.currentTime;
 
             soundEvents.forEach(evt => {
@@ -301,7 +300,6 @@
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(evt.freq, now + evt.time);
                 
-                // 音量(Gain)を元の0.4から1.0(限界値)まで引き上げ、ハッキリ聞こえるように修正！
                 gain.gain.setValueAtTime(1.0, now + evt.time);
                 gain.gain.exponentialRampToValueAtTime(0.01, now + evt.time + evt.dur);
                 
@@ -370,14 +368,19 @@
         }
     }
 
+    // ★ジャスティス・ストローク適用：環境音切り替えロジックのバグを粉砕！★
     async function changeAmbientSound() {
         const selectedUrl = document.getElementById('ambient-select').value;
         if (currentAmbientUrl === selectedUrl) return; 
 
         const wasPlaying = !!ambientSource; 
+        
         if (ambientSource) {
+            // 前の音を300ミリ秒かけてフェードアウト
             fadeAmbient(0, 300); 
-            setTimeout(() => stopAmbientSource(), 300);
+            // 悪の根源であった無条件の停止タイマー（setTimeout）を破棄し、
+            // フェードアウトが完全に終わるまで『正義の待機』を行う！
+            await new Promise(resolve => setTimeout(resolve, 310)); 
         }
         
         await loadAmbientSound(selectedUrl);
@@ -432,6 +435,7 @@
         if (targetVol === 0) {
             const sourceToStop = ambientSource;
             setTimeout(() => {
+                // ここで正しく、古い音源（sourceToStop）と現在の音源（ambientSource）が一致した場合のみ停止処理を行う
                 if (ambientSource === sourceToStop) {
                     stopAmbientSource();
                 }
@@ -455,7 +459,6 @@
     let bgmStartTimeout = null;
     let fadeInterval = null;
 
-    // ★ヒーローによる復元：失われていた君の大切なメッセージたちを完全復活！★
     const WORK_END_MESSAGES = [
         "お疲れ様！素晴らしい集中力でした！",
         "よく頑張ったね！しっかり休もう！",
