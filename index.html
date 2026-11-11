@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>作業用 ポモドーロタイマー Ver.1.3.4</title>
+    <title>作業用 ポモドーロタイマー Ver.1.4β</title>
     <style>
         :root {
             --bg-work: #1a252c;
@@ -254,7 +254,7 @@
     <div id="toast-message">メッセージ</div>
 </div>
 
-<div id="version-display">Ver.1.3.4</div>
+<div id="version-display">Ver.1.4β</div>
 
 <script>
     // --- 音響エンジン共通コンテキスト ---
@@ -368,7 +368,6 @@
         }
     }
 
-    // ★ジャスティス・ストローク適用：環境音切り替えロジックのバグを粉砕！★
     async function changeAmbientSound() {
         const selectedUrl = document.getElementById('ambient-select').value;
         if (currentAmbientUrl === selectedUrl) return; 
@@ -376,10 +375,7 @@
         const wasPlaying = !!ambientSource; 
         
         if (ambientSource) {
-            // 前の音を300ミリ秒かけてフェードアウト
             fadeAmbient(0, 300); 
-            // 悪の根源であった無条件の停止タイマー（setTimeout）を破棄し、
-            // フェードアウトが完全に終わるまで『正義の待機』を行う！
             await new Promise(resolve => setTimeout(resolve, 310)); 
         }
         
@@ -435,7 +431,6 @@
         if (targetVol === 0) {
             const sourceToStop = ambientSource;
             setTimeout(() => {
-                // ここで正しく、古い音源（sourceToStop）と現在の音源（ambientSource）が一致した場合のみ停止処理を行う
                 if (ambientSource === sourceToStop) {
                     stopAmbientSource();
                 }
@@ -485,252 +480,252 @@
         "明鏡止水"
     ];
 
-    const timerDisplay = document.getElementById('timer');
-    const modeLabel = document.getElementById('mode-label');
-    const appContainer = document.getElementById('app-container');
-    const bgImage = document.getElementById('bg-image');
-    const breakBgmControl = document.getElementById('break-bgm-control');
-    const breakVolumeValText = document.getElementById('break-volume-val');
-    const ambientControl = document.getElementById('ambient-control');
+    // ★ジャスティス・ストローク適用：秘密の裏コマンド機能実装★
+    let keyBuffer = "";
+    const SECRET_CODE = "mode2";
     
-    if (CAFE_IMAGE_PATH) bgImage.style.backgroundImage = `url('${CAFE_IMAGE_PATH}')`;
+    window.addEventListener('keydown', (e) => {
+        if (isRunning) return; // タイマー停止中のみ受け付ける
+        
+        keyBuffer += e.key.toLowerCase();
+        
+        // バッファをシークレットコードの長さに保つ
+        if (keyBuffer.length > SECRET_CODE.length) {
+            keyBuffer = keyBuffer.slice(-SECRET_CODE.length);
+        }
+        
+        if (keyBuffer === SECRET_CODE) {
+            activateMode2();
+            keyBuffer = ""; // 発動したらリセット
+        }
+    });
+
+    function activateMode2() {
+        if (isRunning) return;
+        isWorkMode = false;       // 休憩モードに書き換え
+        timeLeft = 2 * 60;        // 2分間にセット
+        updateDisplay();
+        showNotification("裏モード起動！", "2分間の休憩からスタートするぞ！", false);
+    }
 
     function changeBreakVolume(val) {
         breakVolume = parseFloat(val);
-        if (!fadeInterval) breakAudio.volume = breakVolume;
-        breakVolumeValText.textContent = `${Math.round(breakVolume * 100)}%`;
+        document.getElementById('break-volume-val').textContent = `${Math.round(breakVolume * 100)}%`;
+        breakAudio.volume = breakVolume;
     }
 
-    function playRandomBreakBGM(startWithFade = false) {
-        if (BGM_LIST.length === 0) return;
-        if (unplayedBgmList.length === 0) unplayedBgmList = [...BGM_LIST];
-        
+    function getRandomMessage(isWorkEnd) {
+        const messages = isWorkEnd ? WORK_END_MESSAGES : BREAK_END_MESSAGES;
+        return messages[Math.floor(Math.random() * messages.length)];
+    }
+
+    function playRandomBreakBGM() {
+        if (unplayedBgmList.length === 0) {
+            unplayedBgmList = [...BGM_LIST]; 
+        }
         const randomIndex = Math.floor(Math.random() * unplayedBgmList.length);
-        breakAudio.src = unplayedBgmList.splice(randomIndex, 1)[0];
+        const selectedBgm = unplayedBgmList.splice(randomIndex, 1)[0];
         
-        if (startWithFade) {
-            breakAudio.volume = 0;
-            breakAudio.play().then(() => fadeBreakBgm(breakVolume, 1000)).catch(e => console.log(e));
-        } else {
-            breakAudio.volume = breakVolume;
-            breakAudio.play().catch(e => console.log(e));
-        }
+        breakAudio.src = selectedBgm;
+        breakAudio.play().catch(e => console.log("BGM再生エラー:", e));
     }
 
-    function fadeBreakBgm(targetVol, durationMs, onComplete) {
+    function fadeOutBGM(durationMs) {
         if (fadeInterval) clearInterval(fadeInterval);
-        const fps = 30;
-        const totalSteps = Math.floor((durationMs / 1000) * fps);
-        if (totalSteps <= 0) {
-            breakAudio.volume = targetVol;
-            if (targetVol === 0) breakAudio.pause();
-            if (onComplete) onComplete();
-            return;
-        }
-        const startVol = breakAudio.volume;
-        const volChange = targetVol - startVol;
-        let step = 0;
+        
+        const steps = 20;
+        const stepTime = durationMs / steps;
+        const volStep = breakAudio.volume / steps;
+        
         fadeInterval = setInterval(() => {
-            step++;
-            breakAudio.volume = Math.max(0, Math.min(1, startVol + volChange * (step / totalSteps)));
-            if (step >= totalSteps) {
+            if (breakAudio.volume - volStep > 0) {
+                breakAudio.volume -= volStep;
+            } else {
+                breakAudio.volume = 0;
+                breakAudio.pause();
+                breakAudio.currentTime = 0;
+                breakAudio.volume = breakVolume; 
                 clearInterval(fadeInterval);
-                fadeInterval = null;
-                breakAudio.volume = targetVol;
-                if (targetVol === 0) breakAudio.pause();
-                if (onComplete) onComplete();
             }
-        }, durationMs / totalSteps);
+        }, stepTime);
     }
 
-    function formatTime(seconds) {
-        return `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
+    function showNotification(title, message, playSound = false) {
+        const toast = document.getElementById("toast");
+        document.getElementById("toast-title").innerText = title;
+        document.getElementById("toast-message").innerText = message;
+        
+        if (playSound) playAlertSound();
+        
+        toast.classList.add("show");
+        
+        if(toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+            toast.classList.remove("show");
+        }, 3000);
+    }
+
+    function showCutscene(text, isSlowFade) {
+        const overlay = document.getElementById('cutscene-overlay');
+        const textElem = document.getElementById('cutscene-text');
+        
+        textElem.innerText = text;
+        
+        if (isSlowFade) {
+            overlay.classList.add('slow-fade');
+        } else {
+            overlay.classList.remove('slow-fade');
+        }
+        
+        overlay.classList.add('active');
+        textElem.classList.add('show');
+        
+        setTimeout(() => {
+            overlay.classList.remove('active');
+            textElem.classList.remove('show');
+        }, isSlowFade ? 9500 : 3500); 
     }
 
     function updateDisplay() {
-        timerDisplay.textContent = formatTime(timeLeft);
-        document.getElementById('session-count').textContent = completedSessions;
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        document.getElementById("timer").innerText = 
+            `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        
+        const modeLabel = document.getElementById("mode-label");
+        const breakBgmControl = document.getElementById("break-bgm-control");
+        const bgImage = document.getElementById("bg-image");
 
         if (isWorkMode) {
-            modeLabel.textContent = "集中モード";
+            document.documentElement.style.setProperty('--current-bg', 'var(--bg-work)');
+            modeLabel.innerText = "集中モード";
             modeLabel.style.color = "var(--primary)";
-            document.body.style.setProperty('--current-bg', 'var(--bg-work)');
-            appContainer.style.borderColor = 'rgba(52, 152, 219, 0.4)';
-            bgImage.classList.remove('show');
             breakBgmControl.classList.remove('active');
-            ambientControl.style.display = 'block'; 
+            bgImage.classList.remove('show');
         } else {
-            modeLabel.textContent = "休憩";
+            document.documentElement.style.setProperty('--current-bg', 'var(--bg-break)');
+            modeLabel.innerText = "休憩モード";
             modeLabel.style.color = "var(--secondary)";
-            document.body.style.setProperty('--current-bg', 'var(--bg-break)');
-            appContainer.style.borderColor = 'rgba(46, 204, 113, 0.4)';
-            if (CAFE_IMAGE_PATH) bgImage.classList.add('show');
             breakBgmControl.classList.add('active');
-            ambientControl.style.display = 'none'; 
+            
+            bgImage.style.backgroundImage = `url('${CAFE_IMAGE_PATH}')`;
+            bgImage.classList.add('show');
         }
     }
 
-    function runTimerLoop() {
-        if (!targetEndTime) targetEndTime = Date.now() + timeLeft * 1000;
+    function checkTimer() {
+        const now = Date.now();
+        timeLeft = Math.round((targetEndTime - now) / 1000);
 
-        timerId = setInterval(() => {
-            const now = Date.now();
-            timeLeft = Math.max(0, Math.round((targetEndTime - now) / 1000));
+        if (timeLeft <= 0) {
+            timeLeft = 0;
+            switchMode();
+        } else {
             updateDisplay();
-
-            if (!isWorkMode && timeLeft === 10) {
-                fadeBreakBgm(0, 9000); 
-                const overlay = document.getElementById('cutscene-overlay');
-                overlay.classList.add('slow-fade', 'active'); 
-            }
-
-            if (timeLeft <= 0) {
-                clearInterval(timerId);
-                timerId = null;
-                
-                if (isWorkMode) {
-                    completedSessions++; 
-                    fadeAmbient(0, 2000); 
-                    
-                    triggerCutscene(WORK_END_MESSAGES, () => {
-                        isWorkMode = false;
-                        timeLeft = BREAK_TIME;
-                        updateDisplay();
-                        showNotification("お疲れ様でした", "5分間の休憩です。", false);
-                        unplayedBgmList = [...BGM_LIST];
-                        bgmStartTimeout = setTimeout(() => { if (!isWorkMode && isRunning) playRandomBreakBGM(true); }, 3000);
-                        targetEndTime = Date.now() + timeLeft * 1000;
-                        runTimerLoop();
-                    });
-                } else {
-                    const randomMsg = BREAK_END_MESSAGES[Math.floor(Math.random() * BREAK_END_MESSAGES.length)];
-                    const cText = document.getElementById('cutscene-text');
-                    cText.textContent = randomMsg;
-                    setTimeout(() => cText.classList.add('show'), 100);
-
-                    isWorkMode = true;
-                    timeLeft = WORK_TIME;
-                    updateDisplay(); 
-
-                    setTimeout(() => {
-                        cText.classList.remove('show');
-                        setTimeout(() => {
-                            fadeBreakBgm(0, 300);
-                            document.getElementById('cutscene-overlay').classList.remove('slow-fade', 'active');
-                            showNotification("休憩終了", "25分間の集中モードを開始します。", true);
-                            targetEndTime = Date.now() + timeLeft * 1000;
-                            isRunning = true;
-                            if (isAmbientOn) startAmbientSound(); 
-                            runTimerLoop();
-                        }, 500);
-                    }, 2800);
-                }
-            }
-        }, 500);
+        }
     }
 
     function startTimer() {
-        if (isRunning) return; 
-
-        initSharedAudioCtx();
+        if (isRunning) return;
         
-        if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
-            Notification.requestPermission();
+        initSharedAudioCtx();
+
+        if (bgmStartTimeout) clearTimeout(bgmStartTimeout);
+
+        if (isWorkMode) {
+            startAmbientSound();
+        } else {
+            if (breakAudio.paused) playRandomBreakBGM();
         }
 
         isRunning = true;
-        targetEndTime = Date.now() + timeLeft * 1000;
-
-        if (isWorkMode) {
-            if (isAmbientOn) startAmbientSound();
-        } else {
-            if (breakAudio.src && breakAudio.paused) {
-                breakAudio.volume = 0;
-                breakAudio.play().then(() => fadeBreakBgm(breakVolume, 1000)).catch(e => console.log(e));
-            } else if (!breakAudio.src) {
-                playRandomBreakBGM(true);
-            }
-        }
-        runTimerLoop();
+        targetEndTime = Date.now() + (timeLeft * 1000); 
+        timerId = setInterval(checkTimer, 200); 
     }
 
     function pauseTimer() {
-        initSharedAudioCtx();
-        clearInterval(timerId);
-        timerId = null;
+        if (!isRunning) return;
         isRunning = false;
-        targetEndTime = null; 
-        if (bgmStartTimeout) clearTimeout(bgmStartTimeout);
+        clearInterval(timerId);
 
         if (isWorkMode) {
-            fadeAmbient(0, 800);
+            fadeAmbient(0, 500); 
         } else {
-            if (!breakAudio.paused) fadeBreakBgm(0, 800);
+            breakAudio.pause();
         }
-        document.getElementById('cutscene-overlay').classList.remove('slow-fade', 'active');
-        document.getElementById('cutscene-text').classList.remove('show');
     }
 
     function resetTimer() {
-        initSharedAudioCtx();
-        clearInterval(timerId);
-        timerId = null;
         isRunning = false;
+        clearInterval(timerId);
+        
+        fadeAmbient(0, 500);
+        fadeOutBGM(500);
+        if (bgmStartTimeout) clearTimeout(bgmStartTimeout);
+        
         isWorkMode = true;
         timeLeft = WORK_TIME;
-        targetEndTime = null; 
         updateDisplay();
-        
-        if (bgmStartTimeout) clearTimeout(bgmStartTimeout);
-        fadeBreakBgm(0, 500);
-        fadeAmbient(0, 500);
-
-        document.getElementById('cutscene-overlay').classList.remove('slow-fade', 'active');
-        document.getElementById('cutscene-text').classList.remove('show');
     }
 
-    function triggerCutscene(messages, callback) {
-        const overlay = document.getElementById('cutscene-overlay');
-        const text = document.getElementById('cutscene-text');
-        text.textContent = messages[Math.floor(Math.random() * messages.length)];
-        overlay.classList.remove('slow-fade'); overlay.classList.add('active');
-        text.classList.add('show');
-        setTimeout(() => {
-            if (callback) callback();
-            setTimeout(() => { text.classList.remove('show'); overlay.classList.remove('active'); }, 300);
-        }, 2800);
-    }
+    function switchMode() {
+        isRunning = false;
+        clearInterval(timerId);
 
-    function showNotification(title, message, isWork) {
-        const toast = document.getElementById('toast');
-        document.getElementById('toast-title').textContent = title;
-        document.getElementById('toast-message').textContent = message;
-        toast.style.borderColor = isWork ? "var(--primary)" : "var(--secondary)";
-        document.getElementById('toast-title').style.color = isWork ? "var(--primary)" : "var(--secondary)";
-        toast.classList.add('show');
+        const message = getRandomMessage(isWorkMode);
 
-        if (document.visibilityState === 'visible') {
-            playAlertSound();
+        if (isWorkMode) {
+            completedSessions++;
+            document.getElementById("session-count").innerText = completedSessions;
+            isWorkMode = false;
+            timeLeft = BREAK_TIME;
+            
+            fadeAmbient(0, 500);
+            
+            showNotification("集中終了！", "少し休んでリフレッシュしよう☕", true);
+            showCutscene(message, false);
+            updateDisplay();
+
+            bgmStartTimeout = setTimeout(() => {
+                playRandomBreakBGM();
+                startTimer(); 
+            }, 4500);
+
         } else {
-            if ("Notification" in window && Notification.permission === "granted") {
-                const desktopNotification = new Notification(title, {
-                    body: message,
-                    requireInteraction: true 
-                });
+            isWorkMode = true;
+            timeLeft = WORK_TIME;
+            
+            fadeOutBGM(1500); 
 
-                desktopNotification.onclick = function() {
-                    window.focus(); 
-                    playAlertSound(); 
-                    this.close(); 
-                };
+            showNotification("休憩終了！", "さあ、また集中しよう🔥", true);
+            showCutscene(message, true); 
+            updateDisplay();
+            
+            bgmStartTimeout = setTimeout(() => {
+                startTimer();
+            }, 10000);
+        }
+    }
+
+    updateDisplay();
+
+    // SP向け画面スリープ防止 (Wake Lock API)
+    let wakeLock = null;
+    async function requestWakeLock() {
+        if ('wakeLock' in navigator) {
+            try {
+                wakeLock = await navigator.wakeLock.request('screen');
+            } catch (err) {
+                console.log('Wake Lock request failed:', err);
             }
         }
-
-        if (toastTimeout) clearTimeout(toastTimeout);
-        toastTimeout = setTimeout(() => toast.classList.remove('show'), 4000);
     }
-    
-    updateDisplay();
+    document.addEventListener('visibilitychange', async () => {
+        if (wakeLock !== null && document.visibilityState === 'visible') {
+            requestWakeLock();
+        }
+    });
+    requestWakeLock();
 </script>
 </body>
 </html>
